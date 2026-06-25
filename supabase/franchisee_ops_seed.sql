@@ -49,7 +49,7 @@ insert into work_orders (id, franchisee_id, booking_id, worker_id, customer_id, 
     '[{"id":"t8","label":"Remove old boards (rear section)","done":false},{"id":"t9","label":"Install composite decking","done":false},{"id":"t10","label":"Seal & finish","done":false}]');
 
 -- ─── OBSERVATIONS ───
-insert into observations (id, franchisee_id, booking_id, customer_id, brand_id, worker_id, text, has_photo, lat, lng, created_at) values
+insert into observations (id, franchisee_id, booking_id, customer_id, brand_id, worker_id, text, photo, lat, lng, created_at) values
   ('00000000-0000-0000-0004-000000000001', 'f1', '00000000-0000-0000-0002-000000000001', '00000000-0000-0000-0001-000000000001', 'clean', '00000000-0000-0000-0000-000000000001', 'Deck boards rotting at rear entrance; customer asked about repair estimate.', true, 43.65, -79.38, '2026-06-20T09:37:00Z'),
   ('00000000-0000-0000-0004-000000000002', 'f3', '00000000-0000-0000-0002-000000000002', '00000000-0000-0000-0001-000000000003', 'lawn', '00000000-0000-0000-0000-000000000002', 'Gutters full of leaves; heavy rain forecast this week.', true, 43.68, -79.42, '2026-06-20T10:15:00Z'),
   ('00000000-0000-0000-0004-000000000003', 'f1', '00000000-0000-0000-0002-000000000001', '00000000-0000-0000-0001-000000000001', 'clean', '00000000-0000-0000-0000-000000000001', 'Old couch in basement; customer wants junk removal quote.', false, 43.65, -79.38, '2026-06-20T09:55:00Z');

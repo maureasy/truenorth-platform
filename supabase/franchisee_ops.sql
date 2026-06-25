@@ -3,6 +3,17 @@
 -- Run this in Supabase SQL Editor
 -- ============================================
 
+-- Add franchisee_id to profiles FIRST (needed by RLS policies below)
+do $$
+begin
+  if not exists (
+    select 1 from information_schema.columns
+    where table_name = 'profiles' and column_name = 'franchisee_id'
+  ) then
+    alter table profiles add column franchisee_id text references franchisees(id);
+  end if;
+end $$;
+
 -- ─── WORKERS ───
 create table if not exists workers (
   id uuid primary key default uuid_generate_v4(),
@@ -208,14 +219,6 @@ create policy "Assets: franchisee sees own" on assets for select
   using (franchisee_id = (select franchisee_id from profiles where id = auth.uid()));
 create policy "Assets: franchisee manages own" on assets for all
   using (franchisee_id = (select franchisee_id from profiles where id = auth.uid()));
-
--- ============================================
--- ADD franchisee_id TO PROFILES
--- Links a user to their franchise for scoping
--- ============================================
-
-alter table profiles
-  add column if not exists franchisee_id text references franchisees(id);
 
 -- ============================================
 -- INDEXES

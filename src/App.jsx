@@ -1,4 +1,4 @@
-import { useState, useMemo } from 'react'
+import { useState, useMemo, useCallback } from 'react'
 import { Building2, ClipboardList, Wrench, Home as HomeIcon, LogOut } from 'lucide-react'
 import { signOut } from './lib/auth.jsx'
 import { Sidebar } from './components/Sidebar'
@@ -28,7 +28,17 @@ import { DealScorecard } from './components/holdco/DealScorecard'
 import { SourcingCRM } from './components/holdco/SourcingCRM'
 import { BillingPanel } from './components/BillingPanel'
 import { PayoutsPanel } from './components/PayoutsPanel'
-import { brands, territories, people, assets, customers, bookings, observations, referrals, workOrders, stats } from './data/mockData'
+import { brands, territories, people as mockPeople, assets as mockAssets, customers as mockCustomers, bookings as mockBookings, observations as mockObservations, referrals as mockReferrals, workOrders as mockWorkOrders, stats } from './data/mockData'
+import { useTable } from './lib/useSupabase'
+
+// Transform Supabase snake_case rows → camelCase for components
+const toCamel = (rows, map) => rows.map(r => {
+  const out = { ...r }
+  for (const [snake, camel] of Object.entries(map)) {
+    if (r[snake] !== undefined) { out[camel] = r[snake]; delete out[snake] }
+  }
+  return out
+})
 
 const ENVIRONMENTS = [
   { id: 'holdco', label: 'HoldCo', icon: Building2, subtitle: 'Corporate HQ', defaultView: 'platform_analytics' },
@@ -48,6 +58,24 @@ function App({ userRole = 'franchisee', franchiseeId = null }) {
   const [selectedObservation, setSelectedObservation] = useState(null)
   const [showNewBooking, setShowNewBooking] = useState(false)
 
+  // Supabase data with fallback to mock
+  const { data: rawWorkers } = useTable('workers', { fallback: mockPeople })
+  const { data: rawCustomers } = useTable('customers', { fallback: mockCustomers })
+  const { data: rawBookings } = useTable('bookings', { fallback: mockBookings, orderBy: { column: 'date', ascending: true } })
+  const { data: rawWorkOrders } = useTable('work_orders', { fallback: mockWorkOrders })
+  const { data: rawObservations } = useTable('observations', { fallback: mockObservations, orderBy: { column: 'created_at', ascending: false } })
+  const { data: rawReferrals } = useTable('referrals', { fallback: mockReferrals })
+  const { data: rawAssets } = useTable('assets', { fallback: mockAssets })
+
+  // Map snake_case → camelCase
+  const people = useMemo(() => toCamel(rawWorkers, { brand_id: 'brandId', jobs_completed: 'jobsCompleted', hire_date: 'hireDate', referrals_generated: 'referralsGenerated', bounty_earned: 'bountyEarned', franchisee_id: 'franchiseeId' }), [rawWorkers])
+  const customers = useMemo(() => toCamel(rawCustomers, { franchisee_id: 'franchiseeId', is_member: 'member', member_since: 'memberSince', total_spend: 'totalSpend', services_used: 'servicesUsed', last_service: 'lastService' }), [rawCustomers])
+  const bookings = useMemo(() => toCamel(rawBookings, { franchisee_id: 'franchiseeId', customer_id: 'customerId', brand_id: 'brandId', worker_id: 'workerId', total_price: 'totalPrice' }), [rawBookings])
+  const workOrders = useMemo(() => toCamel(rawWorkOrders, { franchisee_id: 'franchiseeId', booking_id: 'bookingId', worker_id: 'workerId', customer_id: 'customerId', brand_id: 'brandId', checked_in_at: 'checkedInAt', checked_out_at: 'checkedOutAt' }), [rawWorkOrders])
+  const observations = useMemo(() => toCamel(rawObservations, { franchisee_id: 'franchiseeId', booking_id: 'bookingId', customer_id: 'customerId', brand_id: 'brandId', worker_id: 'workerId', has_photo: 'photo', created_at: 'createdAt' }), [rawObservations])
+  const referrals = useMemo(() => toCamel(rawReferrals, { franchisee_id: 'franchiseeId', observation_id: 'observationId', from_brand_id: 'fromBrandId', to_brand_id: 'toBrandId', customer_id: 'customerId', created_at: 'createdAt' }), [rawReferrals])
+  const assets = useMemo(() => toCamel(rawAssets, { franchisee_id: 'franchiseeId', brand_id: 'brandId', assigned_to: 'assignedTo', last_service: 'lastService' }), [rawAssets])
+
   const switchEnv = (envId) => {
     setEnvironment(envId)
     const env = ENVIRONMENTS.find(e => e.id === envId)
@@ -60,7 +88,7 @@ function App({ userRole = 'franchisee', franchiseeId = null }) {
     selectedBooking, setSelectedBooking,
     selectedReferral, setSelectedReferral,
     selectedObservation, setSelectedObservation,
-  }), [selectedTerritory, selectedBooking, selectedReferral, selectedObservation])
+  }), [selectedTerritory, selectedBooking, selectedReferral, selectedObservation, people, assets, customers, bookings, observations, referrals, workOrders])
 
   const currentEnv = ENVIRONMENTS.find(e => e.id === environment)
   const isFullscreen = environment === 'worker' || environment === 'customer'
