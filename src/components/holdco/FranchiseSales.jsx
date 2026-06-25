@@ -83,9 +83,32 @@ export function FranchiseSales() {
     setActionLoading(false)
   }
 
-  const advanceStage = (app) => {
+  const advanceStage = async (app) => {
     const conf = stageConf[app.status]
-    if (conf?.next) updateStatus(app.id, conf.next)
+    if (!conf?.next) return
+
+    // If advancing to "approved", create the franchisee record
+    if (conf.next === 'approved') {
+      await onboardFranchisee(app)
+    }
+    updateStatus(app.id, conf.next)
+  }
+
+  const onboardFranchisee = async (app) => {
+    const franchiseeId = `f${Date.now().toString(36)}`
+    const primaryBrand = app.preferred_brands?.[0] || 'clean'
+    const { error } = await supabase.from('franchisees').insert({
+      id: franchiseeId,
+      brand_id: primaryBrand,
+      name: `${app.first_name} ${app.last_name} — ${app.city || 'TBD'}`,
+      owner: `${app.first_name} ${app.last_name}`,
+      territory: app.preferred_territory || null,
+      contact_email: app.email,
+      application_id: app.id,
+      status: 'healthy',
+      since: new Date().toISOString().split('T')[0],
+    })
+    if (error) console.error('Onboarding error:', error)
   }
 
   const declineApp = (app) => updateStatus(app.id, 'rejected')
@@ -247,8 +270,11 @@ export function FranchiseSales() {
             {selected.status === 'approved' && (
               <div className="pt-2 border-t border-slate-100">
                 <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
-                  <div className="text-[10px] font-bold text-emerald-700 mb-1">✓ Approved</div>
-                  <div className="text-[10px] text-emerald-600">Account invite will be sent to {selected.email}</div>
+                  <div className="text-[10px] font-bold text-emerald-700 mb-1">✓ Approved &amp; Onboarded</div>
+                  <div className="text-[10px] text-emerald-600 space-y-1">
+                    <p>Franchisee record created.</p>
+                    <p>{selected.email} can now sign up at the login page and will be automatically linked to their franchise.</p>
+                  </div>
                 </div>
               </div>
             )}
