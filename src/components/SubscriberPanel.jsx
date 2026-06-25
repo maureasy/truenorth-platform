@@ -1,7 +1,7 @@
 import { useState, useEffect, useCallback } from 'react'
 import { Crown, Users, Plus, Pencil, Trash2, X, Loader2, Search, Mail, Phone } from 'lucide-react'
 import { brands } from '../data/mockData'
-import { subscriberApi } from '../api'
+import { supabase } from '../lib/supabase'
 
 const tierConfig = {
   none:       { label: 'No Plan', color: 'bg-slate-50 text-slate-500 border border-slate-200', price: '—' },
@@ -31,7 +31,11 @@ export function SubscriberPanel() {
 
   const load = useCallback(async () => {
     setLoading(true)
-    try { setData(await subscriberApi.list()) } catch (e) { console.error(e) }
+    try {
+      const { data: rows, error } = await supabase.from('subscribers').select('*').order('created_at', { ascending: false })
+      if (error) throw error
+      setData((rows || []).map(r => ({ ...r, _id: r.id, totalSpend: Number(r.total_spend) || 0, servicesUsed: r.services_used || [], memberSince: r.member_since })))
+    } catch (e) { console.error(e) }
     setLoading(false)
   }, [])
 
@@ -47,15 +51,25 @@ export function SubscriberPanel() {
   const handleSave = async () => {
     setSaving(true)
     try {
-      if (modal === 'add') await subscriberApi.create(form)
-      else await subscriberApi.update(editId, form)
+      const row = { name: form.name, email: form.email, phone: form.phone, address: form.address, tier: form.tier, status: form.status, total_spend: form.totalSpend, services_used: form.servicesUsed, notes: form.notes }
+      if (modal === 'add') {
+        const { error } = await supabase.from('subscribers').insert(row)
+        if (error) throw error
+      } else {
+        const { error } = await supabase.from('subscribers').update(row).eq('id', editId)
+        if (error) throw error
+      }
       await load(); closeModal()
     } catch (e) { alert(e.message) }
     setSaving(false)
   }
   const handleDelete = async (id) => {
     if (!confirm('Remove this subscriber?')) return
-    try { await subscriberApi.delete(id); await load(); if (selectedId === id) setSelectedId(null) } catch (e) { alert(e.message) }
+    try {
+      const { error } = await supabase.from('subscribers').delete().eq('id', id)
+      if (error) throw error
+      await load(); if (selectedId === id) setSelectedId(null)
+    } catch (e) { alert(e.message) }
   }
 
   const toggleService = (sId) => {
