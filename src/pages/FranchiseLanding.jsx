@@ -1,6 +1,6 @@
 import { useState, useMemo, useEffect } from 'react'
 import { ArrowRight, DollarSign, MapPin, Users, TrendingUp, Shield, CheckCircle2, Rocket, Award, Building2, Phone, Mail, Calendar, Star, BarChart3, Home, Loader2 } from 'lucide-react'
-import { MapContainer, TileLayer, Polygon, GeoJSON, Tooltip } from 'react-leaflet'
+import { MapContainer, TileLayer, GeoJSON, Tooltip } from 'react-leaflet'
 import { territories, franchiseZones, brands as brandData } from '../data/mockData'
 
 const whyUs = [
@@ -425,6 +425,7 @@ function TerritoryExplorer() {
           <MapContainer center={city.center} zoom={city.zoom + 1} className="h-full w-full" zoomControl={false} key={selectedCity}>
             <TileLayer url="https://{s}.basemaps.cartocdn.com/light_all/{z}/{x}/{y}{r}.png" attribution="" />
             {zones.map(zone => {
+              if (!liveBoundaries[zone.id]) return null
               const isSelected = selectedZone?.id === zone.id
               const isAvailable = zone.status === 'available'
               const style = {
@@ -434,27 +435,15 @@ function TerritoryExplorer() {
                 fillOpacity: isSelected ? 0.35 : isAvailable ? 0.10 : 0.20,
                 dashArray: isAvailable ? '8 4' : undefined,
               }
-              if (liveBoundaries[zone.id]) {
-                return (
-                  <GeoJSON key={zone.id + '-live'} data={liveBoundaries[zone.id]} style={() => style}
-                    eventHandlers={{ click: () => setSelectedZone(zone) }}>
-                    <Tooltip direction="center" permanent className="territory-label">
-                      <span style={{ color: isAvailable ? '#d97706' : zone.color, fontWeight: 700, fontSize: '11px' }}>
-                        {zone.name} {isAvailable ? '✦' : ''}
-                      </span>
-                    </Tooltip>
-                  </GeoJSON>
-                )
-              }
               return (
-                <Polygon key={zone.id} positions={zone.polygon} pathOptions={style}
+                <GeoJSON key={zone.id + '-live'} data={liveBoundaries[zone.id]} style={() => style}
                   eventHandlers={{ click: () => setSelectedZone(zone) }}>
                   <Tooltip direction="center" permanent className="territory-label">
                     <span style={{ color: isAvailable ? '#d97706' : zone.color, fontWeight: 700, fontSize: '11px' }}>
                       {zone.name} {isAvailable ? '✦' : ''}
                     </span>
                   </Tooltip>
-                </Polygon>
+                </GeoJSON>
               )
             })}
           </MapContainer>
