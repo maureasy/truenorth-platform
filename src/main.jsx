@@ -5,6 +5,7 @@ import { CorporateLanding } from './pages/CorporateLanding.jsx'
 import { CustomerLanding } from './pages/CustomerLanding.jsx'
 import { FranchiseLanding } from './pages/FranchiseLanding.jsx'
 import { FranchiseApply } from './pages/FranchiseApply.jsx'
+import { DocumentUpload } from './pages/DocumentUpload.jsx'
 import { Login } from './pages/Login.jsx'
 import { AuthProvider, useAuth } from './lib/auth.jsx'
 import './index.css'
@@ -17,6 +18,7 @@ function Router() {
   if (path === '/customer') return <CustomerLanding />
   if (path === '/franchise') return <FranchiseLanding />
   if (path === '/apply') return <FranchiseApply />
+  if (path === '/upload') return <DocumentUpload />
   if (path === '/login') return <Login />
 
   // Protected route — main platform

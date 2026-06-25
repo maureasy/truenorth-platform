@@ -1,5 +1,5 @@
 import { useState, useEffect } from 'react'
-import { Building2, Phone, Mail, Calendar, CheckCircle2, Clock, XCircle, FileText, MapPin, UserPlus, Loader2 } from 'lucide-react'
+import { Building2, Phone, Mail, Calendar, CheckCircle2, Clock, XCircle, FileText, MapPin, UserPlus, Loader2, Link2, Download, Eye, Upload } from 'lucide-react'
 import { brands } from '../../data/mockData'
 import { supabase } from '../../lib/supabase'
 
@@ -16,6 +16,9 @@ export function FranchiseSales() {
   const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
   const [actionLoading, setActionLoading] = useState(false)
+  const [docs, setDocs] = useState([])
+  const [docsLoading, setDocsLoading] = useState(false)
+  const [linkCopied, setLinkCopied] = useState(false)
   const stageOrder = ['submitted', 'under_review', 'qualified', 'approved', 'rejected']
 
   const fetchApplications = async () => {
@@ -28,6 +31,44 @@ export function FranchiseSales() {
   }
 
   useEffect(() => { fetchApplications() }, [])
+
+  useEffect(() => {
+    if (selected?.id) fetchDocs(selected.id)
+    else setDocs([])
+  }, [selected?.id])
+
+  const fetchDocs = async (appId) => {
+    setDocsLoading(true)
+    const { data } = await supabase
+      .from('application_documents')
+      .select('*')
+      .eq('application_id', appId)
+      .order('created_at', { ascending: true })
+    setDocs(data || [])
+    setDocsLoading(false)
+  }
+
+  const copyUploadLink = (app) => {
+    const url = `${window.location.origin}/upload?token=${app.upload_token}`
+    navigator.clipboard.writeText(url)
+    setLinkCopied(true)
+    setTimeout(() => setLinkCopied(false), 2000)
+  }
+
+  const updateDocStatus = async (docId, status) => {
+    await supabase
+      .from('application_documents')
+      .update({ status })
+      .eq('id', docId)
+    if (selected?.id) fetchDocs(selected.id)
+  }
+
+  const downloadDoc = async (doc) => {
+    const { data } = await supabase.storage
+      .from('application-docs')
+      .createSignedUrl(doc.storage_path, 60)
+    if (data?.signedUrl) window.open(data.signedUrl, '_blank')
+  }
 
   const updateStatus = async (id, newStatus) => {
     setActionLoading(true)
@@ -211,6 +252,57 @@ export function FranchiseSales() {
                 </div>
               </div>
             )}
+
+            {/* Document Checklist */}
+            <div className="border-t border-slate-100 pt-3">
+              <div className="flex items-center justify-between mb-2">
+                <div className="text-[10px] font-bold text-slate-400 uppercase">Documents</div>
+                <button
+                  onClick={() => copyUploadLink(selected)}
+                  className="flex items-center gap-1 text-[10px] font-semibold text-truenorth-600 hover:text-truenorth-700"
+                >
+                  <Link2 size={10} />
+                  {linkCopied ? 'Copied!' : 'Copy upload link'}
+                </button>
+              </div>
+
+              {docsLoading ? (
+                <div className="flex items-center justify-center py-3">
+                  <Loader2 size={12} className="animate-spin text-slate-300" />
+                </div>
+              ) : docs.length === 0 ? (
+                <div className="text-[10px] text-slate-400 py-2">No documents uploaded yet. Send the upload link to the applicant.</div>
+              ) : (
+                <div className="space-y-1.5">
+                  {docs.map(doc => (
+                    <div key={doc.id} className="flex items-center gap-2 p-2 rounded-lg bg-slate-50 border border-slate-100">
+                      <FileText size={12} className={doc.status === 'approved' ? 'text-emerald-500' : doc.status === 'rejected' ? 'text-red-500' : 'text-slate-400'} />
+                      <div className="flex-1 min-w-0">
+                        <div className="text-[10px] font-semibold text-slate-700 truncate">{doc.file_name}</div>
+                        <div className="text-[9px] text-slate-400">{doc.doc_type.replace(/_/g, ' ')} &bull; {(doc.file_size / 1024).toFixed(0)} KB</div>
+                      </div>
+                      <div className="flex items-center gap-1">
+                        <button onClick={() => downloadDoc(doc)} className="p-1 rounded hover:bg-slate-200" title="Download">
+                          <Download size={10} className="text-slate-500" />
+                        </button>
+                        {doc.status === 'uploaded' && (
+                          <>
+                            <button onClick={() => updateDocStatus(doc.id, 'approved')} className="p-1 rounded hover:bg-emerald-100" title="Approve">
+                              <CheckCircle2 size={10} className="text-emerald-500" />
+                            </button>
+                            <button onClick={() => updateDocStatus(doc.id, 'rejected')} className="p-1 rounded hover:bg-red-100" title="Reject">
+                              <XCircle size={10} className="text-red-500" />
+                            </button>
+                          </>
+                        )}
+                        {doc.status === 'approved' && <span className="text-[8px] font-bold text-emerald-600 bg-emerald-50 px-1 rounded">OK</span>}
+                        {doc.status === 'rejected' && <span className="text-[8px] font-bold text-red-600 bg-red-50 px-1 rounded">REJ</span>}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              )}
+            </div>
           </div>
         </div>
       )}

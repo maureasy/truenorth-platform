@@ -47,6 +47,7 @@ export function FranchiseApply() {
 
   const [submitting, setSubmitting] = useState(false)
   const [submitError, setSubmitError] = useState(null)
+  const [uploadToken, setUploadToken] = useState(null)
 
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1))
   const back = () => setStep(s => Math.max(s - 1, 0))
@@ -55,7 +56,7 @@ export function FranchiseApply() {
     setSubmitting(true)
     setSubmitError(null)
     try {
-      const { error } = await supabase.from('franchise_applications').insert({
+      const { data: insertedRows, error } = await supabase.from('franchise_applications').insert({
         first_name: form.firstName,
         last_name: form.lastName,
         email: form.email,
@@ -79,8 +80,9 @@ export function FranchiseApply() {
         consent_background: form.agreeBackgroundCheck,
         consent_terms: form.agreeTerms,
         status: 'submitted',
-      })
+      }).select()
       if (error) throw error
+      if (insertedRows?.[0]?.upload_token) setUploadToken(insertedRows[0].upload_token)
       setSubmitted(true)
     } catch (err) {
       console.error('Submit error:', err)
@@ -116,6 +118,18 @@ export function FranchiseApply() {
               <div><strong className="text-slate-700">Territory + FDD</strong> <span className="text-slate-500">— review available territories and franchise disclosure docs</span></div>
             </div>
           </div>
+          {uploadToken && (
+            <div className="bg-blue-50 border border-blue-200 rounded-xl p-4 mt-6 text-left">
+              <div className="text-xs font-bold text-blue-700 mb-1">Upload your documents now</div>
+              <p className="text-xs text-blue-600 mb-3">Speed up your review by uploading your ID, proof of funds, and resume.</p>
+              <a
+                href={`/upload?token=${uploadToken}`}
+                className="inline-flex items-center gap-2 px-4 py-2 bg-blue-600 text-white text-xs font-bold rounded-lg hover:bg-blue-700 transition-colors"
+              >
+                Upload Documents →
+              </a>
+            </div>
+          )}
           <p className="text-xs text-slate-400 mt-6">Confirmation sent to {form.email}</p>
           <a href="/franchise" className="inline-block mt-6 text-sm font-semibold text-truenorth-600 hover:text-truenorth-700">← Back to franchise info</a>
         </div>
