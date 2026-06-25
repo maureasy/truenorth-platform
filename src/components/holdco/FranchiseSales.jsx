@@ -1,28 +1,61 @@
-import { useState } from 'react'
-import { Building2, Phone, Mail, Calendar, CheckCircle2, Clock, XCircle, FileText, MapPin } from 'lucide-react'
+import { useState, useEffect } from 'react'
+import { Building2, Phone, Mail, Calendar, CheckCircle2, Clock, XCircle, FileText, MapPin, UserPlus, Loader2 } from 'lucide-react'
 import { brands } from '../../data/mockData'
-
-const prospects = [
-  { id: 'fs1', name: 'Robert Kim', email: 'rkim@email.com', phone: '416-555-2201', city: 'Toronto', interest: ['clean', 'lawn'], capital: '$80-120k', experience: 'Former restaurant manager, 15 years', stage: 'application', score: 82, appliedAt: '2026-06-18', notes: 'Strong operational background. Interested in Scarborough territory.' },
-  { id: 'fs2', name: 'Patricia Okafor', email: 'pokafor@email.com', phone: '403-555-3301', city: 'Calgary', interest: ['lawn'], capital: '$60-90k', experience: 'Landscaping business owner, 8 years', stage: 'interview', score: 91, appliedAt: '2026-06-12', notes: 'Already runs small lawn company. Wants to convert to franchise model. Excellent fit.' },
-  { id: 'fs3', name: 'Jean-Pierre Dubois', email: 'jpdubois@email.com', phone: '604-555-4401', city: 'Vancouver', interest: ['clean'], capital: '$100-150k', experience: 'Property management, 10 years', stage: 'discovery', score: 75, appliedAt: '2026-06-20', notes: 'Inquiry through website. Wants to explore Vancouver market.' },
-  { id: 'fs4', name: 'Samantha Lee', email: 'slee@email.com', phone: '416-555-5501', city: 'Toronto', interest: ['handyman', 'junk'], capital: '$50-80k', experience: 'General contractor, 6 years', stage: 'approved', score: 88, appliedAt: '2026-05-28', notes: 'Approved for Etobicoke territory. Accelerator funding in process.' },
-  { id: 'fs5', name: 'Marcus Chen', email: 'mchen@email.com', phone: '416-555-6601', city: 'Toronto', interest: ['deck'], capital: '$120-180k', experience: 'Deck building company owner, 12 years', stage: 'interview', score: 85, appliedAt: '2026-06-15', notes: 'Existing deck builder. Interested in franchise support & lead-gen platform.' },
-  { id: 'fs6', name: 'Angela Rivera', email: 'arivera@email.com', phone: '403-555-7701', city: 'Calgary', interest: ['clean', 'handyman'], capital: '$70-100k', experience: 'Hotel housekeeping manager, 9 years', stage: 'declined', score: 45, appliedAt: '2026-06-01', notes: 'Insufficient capital. Invited to reapply when ready.' },
-  { id: 'fs7', name: 'Trevor Singh', email: 'tsingh@email.com', phone: '416-555-8801', city: 'Toronto', interest: ['lawn', 'junk'], capital: '$90-130k', experience: 'Fleet management, 7 years', stage: 'application', score: 78, appliedAt: '2026-06-19', notes: 'Good fleet experience. Could cover North York territory.' },
-]
+import { supabase } from '../../lib/supabase'
 
 const stageConf = {
-  discovery: { label: 'Discovery', color: 'bg-slate-100 text-slate-600', icon: Phone },
-  application: { label: 'Application', color: 'bg-blue-100 text-blue-700', icon: FileText },
-  interview: { label: 'Interview', color: 'bg-violet-100 text-violet-700', icon: Calendar },
-  approved: { label: 'Approved', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2 },
-  declined: { label: 'Declined', color: 'bg-red-100 text-red-700', icon: XCircle },
+  submitted: { label: 'Submitted', color: 'bg-slate-100 text-slate-600', icon: FileText, next: 'under_review' },
+  under_review: { label: 'Under Review', color: 'bg-blue-100 text-blue-700', icon: Phone, next: 'qualified' },
+  qualified: { label: 'Qualified', color: 'bg-violet-100 text-violet-700', icon: Calendar, next: 'approved' },
+  approved: { label: 'Approved', color: 'bg-emerald-100 text-emerald-700', icon: CheckCircle2, next: null },
+  rejected: { label: 'Declined', color: 'bg-red-100 text-red-700', icon: XCircle, next: null },
 }
 
 export function FranchiseSales() {
+  const [applications, setApplications] = useState([])
+  const [loading, setLoading] = useState(true)
   const [selected, setSelected] = useState(null)
-  const stageOrder = ['discovery', 'application', 'interview', 'approved', 'declined']
+  const [actionLoading, setActionLoading] = useState(false)
+  const stageOrder = ['submitted', 'under_review', 'qualified', 'approved', 'rejected']
+
+  const fetchApplications = async () => {
+    const { data, error } = await supabase
+      .from('franchise_applications')
+      .select('*')
+      .order('submitted_at', { ascending: false })
+    if (!error && data) setApplications(data)
+    setLoading(false)
+  }
+
+  useEffect(() => { fetchApplications() }, [])
+
+  const updateStatus = async (id, newStatus) => {
+    setActionLoading(true)
+    const { error } = await supabase
+      .from('franchise_applications')
+      .update({ status: newStatus })
+      .eq('id', id)
+    if (!error) {
+      await fetchApplications()
+      setSelected(prev => prev ? { ...prev, status: newStatus } : null)
+    }
+    setActionLoading(false)
+  }
+
+  const advanceStage = (app) => {
+    const conf = stageConf[app.status]
+    if (conf?.next) updateStatus(app.id, conf.next)
+  }
+
+  const declineApp = (app) => updateStatus(app.id, 'rejected')
+
+  if (loading) {
+    return (
+      <div className="h-full flex items-center justify-center">
+        <Loader2 size={24} className="animate-spin text-truenorth-500" />
+      </div>
+    )
+  }
 
   return (
     <div className="h-full flex gap-5 overflow-hidden">
@@ -32,7 +65,7 @@ export function FranchiseSales() {
             <Building2 size={20} className="text-truenorth-500" />
             Franchise Sales CRM
           </h2>
-          <p className="text-xs text-slate-400 mt-0.5">Prospect pipeline &bull; New franchisee applications</p>
+          <p className="text-xs text-slate-400 mt-0.5">Prospect pipeline &bull; Live from Supabase</p>
         </div>
 
         {/* Pipeline stages */}
@@ -40,7 +73,7 @@ export function FranchiseSales() {
           {stageOrder.map(stage => {
             const conf = stageConf[stage]
             const Icon = conf.icon
-            const count = prospects.filter(p => p.stage === stage).length
+            const count = applications.filter(p => p.status === stage).length
             return (
               <div key={stage} className="bg-white rounded-xl border border-slate-100 shadow-sm p-3">
                 <div className="flex items-center gap-2 mb-1">
@@ -55,80 +88,127 @@ export function FranchiseSales() {
           })}
         </div>
 
-        {/* Prospect list */}
+        {/* Application list */}
         <div className="bg-white rounded-2xl border border-slate-100 shadow-card p-4 flex-1 overflow-auto">
-          <div className="space-y-2">
-            {prospects.map(p => {
-              const conf = stageConf[p.stage]
-              const Icon = conf.icon
-              return (
-                <div key={p.id} onClick={() => setSelected(p)} className={`flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-all ${selected?.id === p.id ? 'border-truenorth-300 bg-truenorth-50' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'}`}>
-                  <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
-                    {p.name.split(' ').map(n => n[0]).join('')}
-                  </div>
-                  <div className="flex-1 min-w-0">
-                    <div className="text-[13px] font-semibold text-slate-800">{p.name}</div>
-                    <div className="text-[10px] text-slate-400 flex items-center gap-2">
-                      <MapPin size={9} /> {p.city}
-                      <span>&bull;</span>
-                      Capital: {p.capital}
+          {applications.length === 0 ? (
+            <div className="flex flex-col items-center justify-center h-full text-slate-400">
+              <UserPlus size={32} className="mb-2" />
+              <p className="text-sm font-medium">No applications yet</p>
+              <p className="text-xs mt-1">Applications from /apply will appear here</p>
+            </div>
+          ) : (
+            <div className="space-y-2">
+              {applications.map(p => {
+                const conf = stageConf[p.status] || stageConf.submitted
+                const Icon = conf.icon
+                const name = `${p.first_name || ''} ${p.last_name || ''}`.trim() || 'Unknown'
+                const initials = name.split(' ').map(n => n[0]).join('').toUpperCase()
+                return (
+                  <div key={p.id} onClick={() => setSelected(p)} className={`flex items-center gap-4 p-3 rounded-xl border cursor-pointer transition-all ${selected?.id === p.id ? 'border-truenorth-300 bg-truenorth-50' : 'border-slate-100 hover:border-slate-200 hover:bg-slate-50/50'}`}>
+                    <div className="w-9 h-9 rounded-full bg-slate-200 flex items-center justify-center text-sm font-bold text-slate-600">
+                      {initials}
+                    </div>
+                    <div className="flex-1 min-w-0">
+                      <div className="text-[13px] font-semibold text-slate-800">{name}</div>
+                      <div className="text-[10px] text-slate-400 flex items-center gap-2">
+                        <MapPin size={9} /> {p.city || 'N/A'}
+                        {p.preferred_territory && <><span>&bull;</span> {p.preferred_territory}</>}
+                      </div>
+                    </div>
+                    <div className="flex items-center gap-1">
+                      {(p.preferred_brands || []).map(bId => {
+                        const b = brands.find(x => x.id === bId)
+                        return b ? <div key={bId} className="w-4 h-4 rounded-full" style={{ background: b.color }} title={b.name} /> : null
+                      })}
+                    </div>
+                    <div className="text-right">
+                      <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${conf.color}`}>
+                        <Icon size={9} /> {conf.label}
+                      </div>
+                      <div className="text-[10px] text-slate-400 mt-0.5">{p.submitted_at ? new Date(p.submitted_at).toLocaleDateString() : ''}</div>
                     </div>
                   </div>
-                  <div className="flex items-center gap-2">
-                    {p.interest.map(bId => {
-                      const b = brands.find(x => x.id === bId)
-                      return <div key={bId} className="w-4 h-4 rounded-full" style={{ background: b?.color }} title={b?.name} />
-                    })}
-                  </div>
-                  <div className="text-right">
-                    <div className={`inline-flex items-center gap-1 px-2 py-0.5 rounded-full text-[10px] font-semibold ${conf.color}`}>
-                      <Icon size={9} /> {conf.label}
-                    </div>
-                    <div className="text-[10px] text-slate-400 mt-0.5">Score: {p.score}</div>
-                  </div>
-                </div>
-              )
-            })}
-          </div>
+                )
+              })}
+            </div>
+          )}
         </div>
       </div>
 
       {/* Detail panel */}
       {selected && (
-        <div className="w-72 bg-white rounded-2xl border border-slate-100 shadow-card p-5 overflow-auto shrink-0">
+        <div className="w-80 bg-white rounded-2xl border border-slate-100 shadow-card p-5 overflow-auto shrink-0">
           <div className="flex items-center justify-between mb-4">
-            <h3 className="text-sm font-bold text-slate-900">{selected.name}</h3>
+            <h3 className="text-sm font-bold text-slate-900">{selected.first_name} {selected.last_name}</h3>
             <button onClick={() => setSelected(null)} className="text-slate-400 hover:text-slate-600 text-xs">✕</button>
           </div>
           <div className="space-y-3 text-[11px]">
             <Row label="Email" value={selected.email} />
             <Row label="Phone" value={selected.phone} />
             <Row label="City" value={selected.city} />
-            <Row label="Capital" value={selected.capital} />
-            <Row label="Experience" value={selected.experience} />
-            <Row label="Applied" value={selected.appliedAt} />
-            <Row label="Score" value={`${selected.score}/100`} />
+            <Row label="Province" value={selected.province} />
+            <Row label="Occupation" value={selected.occupation} />
+            <Row label="Employer" value={selected.employer} />
+            <Row label="Credit Score" value={selected.credit_score} />
+            <Row label="Timeline" value={selected.start_timeline} />
+            <Row label="Full-time" value={selected.full_time ? 'Yes' : 'No'} />
+            <Row label="Financing" value={selected.financing_needed ? 'Yes' : 'No'} />
+
+            {selected.preferred_brands?.length > 0 && (
+              <div className="border-t border-slate-100 pt-3">
+                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Preferred Brands</div>
+                <div className="flex gap-1.5 flex-wrap">
+                  {selected.preferred_brands.map(bId => {
+                    const b = brands.find(x => x.id === bId)
+                    return b ? (
+                      <span key={bId} className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: b.color + '20', color: b.color }}>
+                        {b.service}
+                      </span>
+                    ) : null
+                  })}
+                </div>
+              </div>
+            )}
+
+            {selected.industry_experience && (
+              <div className="border-t border-slate-100 pt-3">
+                <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Industry Experience</div>
+                <div className="text-[11px] text-slate-600 leading-relaxed">{selected.industry_experience}</div>
+              </div>
+            )}
+
             <div className="border-t border-slate-100 pt-3">
-              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Interested In</div>
-              <div className="flex gap-1.5">
-                {selected.interest.map(bId => {
-                  const b = brands.find(x => x.id === bId)
-                  return (
-                    <span key={bId} className="text-[10px] font-semibold px-2 py-0.5 rounded-full" style={{ background: b?.color + '20', color: b?.color }}>
-                      {b?.service}
-                    </span>
-                  )
-                })}
+              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Status</div>
+              <div className={`inline-flex items-center gap-1 px-2 py-1 rounded-full text-[10px] font-semibold ${(stageConf[selected.status] || stageConf.submitted).color}`}>
+                {(stageConf[selected.status] || stageConf.submitted).label}
               </div>
             </div>
-            <div className="border-t border-slate-100 pt-3">
-              <div className="text-[10px] font-bold text-slate-400 uppercase mb-1">Notes</div>
-              <div className="text-[11px] text-slate-600 leading-relaxed">{selected.notes}</div>
-            </div>
-            {selected.stage !== 'declined' && selected.stage !== 'approved' && (
-              <div className="flex gap-2 pt-2">
-                <button className="flex-1 py-2 rounded-lg bg-truenorth-500 text-white text-[10px] font-bold">Advance Stage</button>
-                <button className="py-2 px-3 rounded-lg border border-slate-200 text-slate-600 text-[10px] font-bold">Decline</button>
+
+            {selected.status !== 'rejected' && selected.status !== 'approved' && (
+              <div className="flex gap-2 pt-2 border-t border-slate-100">
+                <button
+                  onClick={() => advanceStage(selected)}
+                  disabled={actionLoading}
+                  className="flex-1 py-2 rounded-lg bg-truenorth-500 text-white text-[10px] font-bold hover:bg-truenorth-600 disabled:opacity-50 transition-colors"
+                >
+                  {actionLoading ? 'Updating...' : `Advance to ${stageConf[stageConf[selected.status]?.next]?.label || 'Next'}`}
+                </button>
+                <button
+                  onClick={() => declineApp(selected)}
+                  disabled={actionLoading}
+                  className="py-2 px-3 rounded-lg border border-red-200 text-red-600 text-[10px] font-bold hover:bg-red-50 disabled:opacity-50 transition-colors"
+                >
+                  Decline
+                </button>
+              </div>
+            )}
+
+            {selected.status === 'approved' && (
+              <div className="pt-2 border-t border-slate-100">
+                <div className="p-3 bg-emerald-50 rounded-lg border border-emerald-200">
+                  <div className="text-[10px] font-bold text-emerald-700 mb-1">✓ Approved</div>
+                  <div className="text-[10px] text-emerald-600">Account invite will be sent to {selected.email}</div>
+                </div>
               </div>
             )}
           </div>
@@ -139,6 +219,7 @@ export function FranchiseSales() {
 }
 
 function Row({ label, value }) {
+  if (!value) return null
   return (
     <div className="flex justify-between">
       <span className="text-slate-400">{label}</span>

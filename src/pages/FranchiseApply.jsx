@@ -2,6 +2,7 @@ import { useState, useMemo, useEffect } from 'react'
 import { ArrowRight, ArrowLeft, CheckCircle2, Building2, User, DollarSign, Briefcase, MapPin, Send, Loader2 } from 'lucide-react'
 import { MapContainer, TileLayer, Polygon, GeoJSON, Tooltip } from 'react-leaflet'
 import { territories, franchiseZones, brands as brandData } from '../data/mockData'
+import { supabase } from '../lib/supabase'
 
 const STEPS = [
   { id: 'personal', label: 'About You', icon: User },
@@ -44,9 +45,50 @@ export function FranchiseApply() {
     }))
   }
 
+  const [submitting, setSubmitting] = useState(false)
+  const [submitError, setSubmitError] = useState(null)
+
   const next = () => setStep(s => Math.min(s + 1, STEPS.length - 1))
   const back = () => setStep(s => Math.max(s - 1, 0))
-  const submit = () => setSubmitted(true)
+
+  const submit = async () => {
+    setSubmitting(true)
+    setSubmitError(null)
+    try {
+      const { error } = await supabase.from('franchise_applications').insert({
+        first_name: form.firstName,
+        last_name: form.lastName,
+        email: form.email,
+        phone: form.phone,
+        city: form.city,
+        province: form.province,
+        postal_code: form.postalCode,
+        occupation: form.currentRole,
+        employer: form.employer,
+        years_experience: parseInt(form.yearsManagement) || null,
+        management_experience: form.yearsManagement !== '' && form.yearsManagement !== 'Less than 2',
+        industry_experience: form.industryBackground.join(', '),
+        liquid_capital: form.liquidCapital ? parseFloat(form.liquidCapital.replace(/[^0-9]/g, '')) || null : null,
+        net_worth: form.netWorth ? parseFloat(form.netWorth.replace(/[^0-9]/g, '')) || null : null,
+        credit_score: form.creditScoreRange,
+        financing_needed: form.fundingPlan === 'TrueNorth Growth Accelerator Fund',
+        preferred_brands: form.preferredBrands,
+        preferred_territory: form.preferredTerritory || form.preferredCity,
+        start_timeline: form.timelineToLaunch,
+        full_time: form.operatorType === 'full_time',
+        consent_background: form.agreeBackgroundCheck,
+        consent_terms: form.agreeTerms,
+        status: 'submitted',
+      })
+      if (error) throw error
+      setSubmitted(true)
+    } catch (err) {
+      console.error('Submit error:', err)
+      setSubmitError(err.message || 'Something went wrong. Please try again.')
+    } finally {
+      setSubmitting(false)
+    }
+  }
 
   if (submitted) {
     return (
@@ -148,11 +190,14 @@ export function FranchiseApply() {
                 Continue <ArrowRight size={14} />
               </button>
             ) : (
-              <button onClick={submit} disabled={!form.agreeBackgroundCheck || !form.agreeTerms} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-40 disabled:cursor-not-allowed">
-                Submit Application <Send size={14} />
+              <button onClick={submit} disabled={!form.agreeBackgroundCheck || !form.agreeTerms || submitting} className="flex items-center gap-2 px-6 py-2.5 bg-emerald-600 text-white text-sm font-bold rounded-xl hover:bg-emerald-700 transition-colors shadow-lg shadow-emerald-600/20 disabled:opacity-40 disabled:cursor-not-allowed">
+                {submitting ? <><Loader2 size={14} className="animate-spin" /> Submitting...</> : <>Submit Application <Send size={14} /></>}
               </button>
             )}
           </div>
+          {submitError && (
+            <div className="mt-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700 font-medium">{submitError}</div>
+          )}
         </div>
       </div>
     </div>

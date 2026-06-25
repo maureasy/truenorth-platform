@@ -1,5 +1,6 @@
 import { useState, useMemo } from 'react'
-import { Building2, ClipboardList, Wrench, Home as HomeIcon } from 'lucide-react'
+import { Building2, ClipboardList, Wrench, Home as HomeIcon, LogOut } from 'lucide-react'
+import { signOut } from './lib/auth.jsx'
 import { Sidebar } from './components/Sidebar'
 import { StatsBar } from './components/StatsBar'
 import { NotificationBell } from './components/NotificationBell'
@@ -36,9 +37,11 @@ const ENVIRONMENTS = [
   { id: 'customer', label: 'Customer', icon: HomeIcon, subtitle: 'Homeowner', defaultView: 'customer_app' },
 ]
 
-function App() {
-  const [environment, setEnvironment] = useState('franchisee')
-  const [activeView, setActiveView] = useState('command_center')
+function App({ userRole = 'franchisee', franchiseeId = null }) {
+  const defaultEnv = userRole === 'holdco_admin' ? 'holdco' : 'franchisee'
+  const defaultView = ENVIRONMENTS.find(e => e.id === defaultEnv)?.defaultView || 'command_center'
+  const [environment, setEnvironment] = useState(defaultEnv)
+  const [activeView, setActiveView] = useState(defaultView)
   const [selectedTerritory, setSelectedTerritory] = useState(territories[0])
   const [selectedBooking, setSelectedBooking] = useState(null)
   const [selectedReferral, setSelectedReferral] = useState(null)
@@ -94,6 +97,10 @@ function App() {
               )
             })}
           </div>
+          <div className="h-8 w-px bg-slate-200" />
+          <button onClick={() => signOut()} className="p-2 rounded-lg text-slate-400 hover:text-red-500 hover:bg-red-50 transition-colors" title="Sign out">
+            <LogOut size={16} />
+          </button>
           <div className="h-8 w-px bg-slate-200" />
           {environment === 'franchisee' && (
             <>
